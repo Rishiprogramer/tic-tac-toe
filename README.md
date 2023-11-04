@@ -12,6 +12,10 @@ For the ultimate in social gaming, our Multiplayer mode lets you team up with fr
 
 With stunning visuals and an array of gameplay options, this Tic Tac Toe game offers endless hours of entertainment. Are you ready to claim your place in Tic Tac Toe history? The challenge awaits!
 
+If any issue occurs do let me know here or on my gmail id given below!!!
+programming928@gmail.com
+
+
 #Here are some amazing shorts
 ![Tic tac toe 04-11-2023 17_08_59](https://github.com/Rishiprogramer/tic-tac-toe/assets/122547010/67171e13-0975-4ec4-8292-e0aa6618f496)
 
