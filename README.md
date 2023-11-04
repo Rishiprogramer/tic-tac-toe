@@ -1,7 +1,6 @@
-Regenerate
-# tic-tac-toe
+# Tic-Tac-Toe
 
-
+# ABOUT LEVELS
 Welcome to the ultimate Tic Tac Toe showdown! Get ready to test your wits and strategy in this classic game, now reimagined with multiple thrilling gameplay modes.
 
 In our default mode, you'll face off against a Level 1 AI opponent that boasts unparalleled intelligence, making every move a true challenge. Can you outsmart the powerful AI?
