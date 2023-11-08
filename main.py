@@ -248,6 +248,9 @@ class AI():
 
 class Game:
     def __init__(self):
+        self.draw = None
+        self.client_acc = None
+        self.opponent_name = None
         self.player1_draw = None
         self.client = None
         self.board = Board()
@@ -272,8 +275,9 @@ class Game:
             self.board.mark_square(row, col, self.player)
             self.draw_fig(row, col)
             if self.gamemode == 'multiplayer':
-                self.client.send(str(row).encode())
-                self.client.send(str(col).encode())
+                self.client_acc.send(str(row).encode())
+                time.sleep(0.2)
+                self.client_acc.send(str(col).encode())
             self.next_turn()
 
     def show_lines(self):
@@ -287,7 +291,7 @@ class Game:
         pygame.draw.line(screen, LINS, (0, HEIGHT - SQSIZE), (WIDTH, HEIGHT - SQSIZE), LINE_WIDTH)
 
     def next_turn(self):
-        if self.gamemode !=  'multiplayer':
+        if self.gamemode != 'multiplayer':
             self.player = self.player % 2 + 1
             self.draw_player_turn()
 
@@ -310,6 +314,9 @@ class Game:
 
     def change_gamemode(self):
         self.gamemode = 'ai' if self.gamemode == 'pvp' else 'pvp'
+        change = self.gamemode
+        self.__init__()
+        self.gamemode = change
 
     def reset(self):
         self.__init__()
@@ -318,104 +325,98 @@ class Game:
         return self.board.final_state(show=True) != 0 or self.board.isfull()
 
     def multi_turn(self, end=False):
-        if not end:
-            player_text = "Your turn"
-            text = font.render(player_text, True, (255, 255, 255))
-            text_rect = text.get_rect()
-            text_rect.center = (WIDTH // 2, HEIGHT - 20)
-            pygame.draw.rect(screen, BG_Colour, (0, HEIGHT - 40, WIDTH, 40))
-            screen.blit(text, text_rect)
-        else:
-            player_text = "Opponent Turn"
-            text = font.render(player_text, True, (255, 255, 255))
-            text_rect = text.get_rect()
-            text_rect.center = (WIDTH // 2, HEIGHT - 20)
-            pygame.draw.rect(screen, BG_Colour, (0, HEIGHT - 40, WIDTH, 40))
-            screen.blit(text, text_rect)
+        if not self.board.pause:
+            if not end:
+                player_text = "Your turn"
+                text = font.render(player_text, True, (255, 255, 255))
+                text_rect = text.get_rect()
+                text_rect.center = (WIDTH // 2, HEIGHT - 20)
+                pygame.draw.rect(screen, BG_Colour, (0, HEIGHT - 40, WIDTH, 40))
+                screen.blit(text, text_rect)
+            else:
+                player_text = f"{self.opponent_name} Turn"
+                text = font.render(player_text, True, (255, 255, 255))
+                text_rect = text.get_rect()
+                text_rect.center = (WIDTH // 2, HEIGHT - 20)
+                pygame.draw.rect(screen, BG_Colour, (0, HEIGHT - 40, WIDTH, 40))
+                screen.blit(text, text_rect)
 
     def multiplayer(self):
+        self.board.pauses()
+        self.client_acc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client_acc.connect(("192.168.1.3", 8120))
+        self.nick = socket.gethostname()
         self.gamemode = 'multiplayer'
-        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client.connect(('192.168.1.2', 5240))
-
-        # Send the nickname to the server
-        nick = input("Enter your name: ")
-        self.client.send(nick.encode('utf-16'))
-
-        # Receive the name of the match from the server
-        name = self.client.recv(1024).decode('utf-16')
-
-        print(name)
-
-        x_or_o = self.client.recv(1024).decode('utf-16')
-        print(x_or_o)
-
-        if x_or_o == 'X':
-            self.board.pauses()
+        self.client_acc.send(self.nick.encode('utf-16'))
+        self.turn = self.client_acc.recv(1024).decode('utf-16')
+        print(self.turn)
+        self.opponent_name = self.client_acc.recv(1024).decode('utf-16')
+        print(self.opponent_name)
+        if self.turn == 'x':
             self.player = 1
-
         else:
-            self.board.pauses()
+            self.board.un_pause()
+            self.multi_turn(end=True)
             self.player = 2
-        self.player1_draw = False
-
+            self.board.pauses()
+        self.draw = False
+        #main game
         while True:
-            my_turn = self.client.recv(1024).decode('utf-16')
-            print(my_turn)
-            if my_turn == '1' and self.player == 1:
-                if self.player1_draw is not True:
-                    self.board.un_pause()
-                    self.multi_turn()
-                    print(str(self.player) + "1")
-                    print('ok')
-                    self.player1_draw = True
-                    ack = self.client.recv(1024).decode('utf-16')
-                    print(ack)
-                    self.multi_turn(end=True)
-                    self.board.pauses()
-                else:
-                    self.board.un_pause()
-                    self.multi_turn()
-                    print(str(self.player) + "1u")
-                    time.sleep(0.5)
-                    row2 = self.client.recv(1024).decode('utf-16')
-                    time.sleep(0.5)
-                    col2 = self.client.recv(1024).decode('utf-16')
-
-                    print("Values of a and b are:")
-                    print(row2, col2, type(row2), type(col2))
-                    row2, col2 = int(row2), int(col2)
-                    self.player = 2
-                    if self.board.empty_sq(row2, col2):
-                        self.draw_fig(row=row2, col=col2)
-                        self.board.mark_square(row2, col2, self.player)
-                    self.player = 1
-                    ack = self.client.recv(1024).decode('utf-16')
-                    print(ack)
-                    self.multi_turn(end=True)
-                    self.board.final_state(show=True)
-                    self.board.pauses()
-                    
-            elif my_turn == '2' and self.player == 2:
-                print('success')
+            self.turn_1_2 = self.client_acc.recv(1024).decode('utf-16')
+            print(self.turn_1_2)
+            if not self.draw and self.turn_1_2 == '1':
+                print('ok')
                 self.board.un_pause()
-                self.multi_turn()
-                print(str(self.player) + "2")
-                row1 = self.client.recv(1024).decode('utf-16')
-                col1 = self.client.recv(1024).decode('utf-16')
-                self.player = 1
-                if self.board.empty_sq(int(row1), int(col1)):
-                    self.draw_fig(row=int(row1), col=int(col1))
-                    self.board.mark_square(int(row1), int(col1), self.player)
-                self.player = 2
-                ack = self.client.recv(1024).decode('utf-16')
+                self.multi_turn(end=False)
+                ack = self.client_acc.recv(1024).decode('utf-16')
                 print(ack)
-                self.multi_turn(end=True)
-                self.board.final_state(show=True)
+                self.multi_turn(end = True)
+                self.draw = True
                 self.board.pauses()
 
+            elif self.draw and self.turn_1_2 == '1':
+                print('2 elif')
+                row2 = self.client_acc.recv(1024).decode()
+                time.sleep(0.2)
+                col2 = self.client_acc.recv(1024).decode()
+                row2, col2 = int(row2), int(col2)
+                print(row2, col2)
+                self.board.un_pause()
+                if self.board.empty_sq(row2, col2):
+                    self.player = 2
+                    self.board.mark_square(row2, col2, self.player)
+                    self.draw_fig(row2, col2)
+                    self.player = 1
+                self.multi_turn(end = False)
+                self.board.final_state(show=True)
+                ack = self.client_acc.recv(1024).decode('utf-16')
+                self.multi_turn(end = True)
+                if self.board.pause:
+                    self.client_acc.close()
+                self.board.pauses()
+
+            elif self.turn_1_2 == '2':
+                row1 = (self.client_acc.recv(1024).decode())
+                time.sleep(0.2)
+                col1 = (self.client_acc.recv(1024).decode())
+                row1, col1 = int(row1), int(col1)
+                print(row1, col1)
+                self.board.un_pause()
+                if self.board.empty_sq(row1, col1):
+                    self.player = 1
+                    self.board.mark_square(row1, col1, self.player)
+                    self.draw_fig(row1, col1)
+                    self.player = 2
+                self.multi_turn(end = False)
+                self.board.final_state(show=True)
+                ack = self.client_acc.recv(1024).decode('utf-16')
+                if self.board.pause:
+                    self.client_acc.close()
+                self.multi_turn(end = True)
+                self.board.pauses()
 
 def main():
+    global multiplayer_thread
     game = Game()
     board = game.board
     ai = game.ai
@@ -429,12 +430,16 @@ def main():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_g:
                     game.change_gamemode()
+                    board = game.board
+                    ai = game.ai
 
                 elif event.key == pygame.K_0:
-                    ai.level = 0
+                    if game.gamemode != 'multiplayer':
+                        ai.level = 0
 
                 elif event.key == pygame.K_1:
-                    ai.level = 1
+                    if game.gamemode != 'multiplayer':
+                        ai.level = 1
 
                 elif event.key == pygame.K_r:
                     game.reset()
@@ -442,8 +447,21 @@ def main():
                     ai = game.ai
 
                 elif event.key == pygame.K_m:
+                    game.reset()
+                    board = game.board
+                    ai = game.ai
                     multiplayer_thread = threading.Thread(target=game.multiplayer)
                     multiplayer_thread.start()
+
+                elif event.key == pygame.K_o:
+                    if game.gamemode == 'multiplayer':
+                        multiplayer_thread.join()
+                        game.reset()
+                        board = game.board
+                        ai = game.ai
+                        game.gamemode = 'multiplayer'
+                        multiplayer_thread = threading.Thread(target=game.multiplayer)
+                        multiplayer_thread.start()
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pos = event.pos
